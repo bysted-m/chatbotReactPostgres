@@ -1,15 +1,21 @@
 import { Outlet } from "react-router";
 
+function SidebarHeader() {
+  return (
+    <div className="sidebar-header">
+      <h2 className="chatbot-title">Chatbot</h2>
+      <a href="/chat/new" className="new-chat-btn">
+        + New
+      </a>
+    </div>
+  );
+}
+
 function Sidebar() {
   return (
     <aside className="sidebar">
       {/* Sidebar header */}
-      <div className="sidebar-header">
-        <h2 className="chatbot-title">Chatbot</h2>
-        <a href="/chat/new" className="new-chat-btn">
-          + New
-        </a>
-      </div>
+      <SidebarHeader />
       {/* Chat threads list */}
       <nav className="chat-threads-list" aria-label="Chat threads">
         <ul>
