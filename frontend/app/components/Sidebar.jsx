@@ -1,7 +1,7 @@
-function SidebarHeader(props) {
+function SidebarHeader({ count }) {
     return (
         <div className="sidebar-header">
-            <h2 className="chatbot-title">Chatbot ({props.count})</h2>
+            <h2 className="chatbot-title">Chatbot ({count})</h2>
             <a href="/chat/new" className="new-chat-btn">
                 + New
             </a>
@@ -9,18 +9,18 @@ function SidebarHeader(props) {
     );
 }
 
-function ChatThreadItem(props) {
+function ChatThreadItem({ href, title }) {
     return (
         <li className="chat-thread-item">
-            <a href={props.href} className="chat-thread-link">
-                {props.title}
+            <a href={href} className="chat-thread-link">
+                {title}
             </a>
         </li>
     );
 }
 
-function ChatThreadsList(props) {
-    if (props.threads.length === 0) {
+function ChatThreadsList({ threads }) {
+    if (threads.length === 0) {
         return (
             <nav className="chat-threads-list" aria-label="Chat threads">
                 <p className="chat-threads-empty">
@@ -33,7 +33,7 @@ function ChatThreadsList(props) {
     return (
         <nav className="chat-threads-list" aria-label="Chat threads">
             <ul>
-                {props.threads.map((thread) => (
+                {threads.map((thread) => (
                     <ChatThreadItem
                         key={thread.id}
                         href={thread.href}
@@ -62,13 +62,13 @@ function SidebarFooter() {
     );
 }
 
-export default function Sidebar(props) {
+export default function Sidebar({ threads = [] }) {
     return (
         <aside className="sidebar">
             {/* Sidebar header */}
-            <SidebarHeader count={props.threads.length} />
+            <SidebarHeader count={threads.length} />
             {/* Chat threads list */}
-            <ChatThreadsList threads={props.threads} />
+            <ChatThreadsList threads={threads} />
             {/* Sidebar footer */}
             <SidebarFooter />
         </aside>

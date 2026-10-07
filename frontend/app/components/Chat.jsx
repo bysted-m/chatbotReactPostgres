@@ -1,17 +1,17 @@
-export function Message(props) {
+export function Message({ type, timestamp, children }) {
     return (
-        <div className={`message ${props.type}-message`}>
-            <div className="message-content">{props.children}
-                <span className="message-timestamp">{props.timestamp}</span>
+        <div className={`message ${type}-message`}>
+            <div className="message-content">{children}
+                <span className="message-timestamp">{timestamp}</span>
             </div>
         </div>
     );
 }
 
-export function ChatMessages(props) {
+export function ChatMessages({ messages }) {
     return (
         <div className="chat-messages">
-            {props.messages
+            {messages
                 // indkommenter nedenstående linje for at filtrere sig frem til brugerbeskederne (ekstraopgave 2)
                 // .filter((message) => message.type === "user")
                 .map((message) => (
