@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 function SidebarHeader({ count }) {
     return (
         <div className="sidebar-header">
@@ -6,6 +8,43 @@ function SidebarHeader({ count }) {
                 + New
             </a>
         </div>
+    );
+}
+
+function ChatThreadsList({ threads = [], onDeleteThread }) {
+    const [searchValue, setSearchValue] = useState("");
+    const filteredThreads = threads.filter((thread) => thread.title.toLowerCase().includes(searchValue.toLowerCase())
+    );
+    if (threads.length === 0) {
+        return (
+            <nav className="chat-threads-list" aria-label="Chat threads">
+                <p className="chat-threads-empty">
+                    No chats yet. Click "+ New" to start one.
+                </p>
+            </nav>
+        );
+    }
+
+    return (
+        <nav className="chat-threads-list" aria-label="Chat threads">
+            <input
+                className="chat-search-input"
+                type="text"
+                placeholder="Search threads..."
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                aria-label="Search threads"
+            />
+            <ul>
+                {filteredThreads.map((thread) => (
+                    <ChatThreadItem
+                        key={thread.id}
+                        thread={thread}
+                        onDelete={onDeleteThread}
+                    />
+                ))}
+            </ul>
+        </nav>
     );
 }
 
@@ -25,34 +64,6 @@ function ChatThreadItem({ thread, onDelete }) {
                 <button onClick={handleDelete} aria-label="delete chat thread item" type="button" className="deleteThread">&times;</button>
             </div>
         </li>
-    );
-}
-
-
-
-function ChatThreadsList({ threads = [], onDeleteThread }) {
-    if (threads.length === 0) {
-        return (
-            <nav className="chat-threads-list" aria-label="Chat threads">
-                <p className="chat-threads-empty">
-                    No chats yet. Click "+ New" to start one.
-                </p>
-            </nav>
-        );
-    }
-
-    return (
-        <nav className="chat-threads-list" aria-label="Chat threads">
-            <ul>
-                {threads.map((thread) => (
-                    <ChatThreadItem
-                        key={thread.id}
-                        thread={thread}
-                        onDelete={onDeleteThread}
-                    />
-                ))}
-            </ul>
-        </nav>
     );
 }
 
