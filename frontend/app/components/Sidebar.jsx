@@ -9,17 +9,28 @@ function SidebarHeader({ count }) {
     );
 }
 
-function ChatThreadItem({ href, title }) {
+function ChatThreadItem({ thread, onDelete }) {
+    const { id, href, title } = thread;
+
+    const handleDelete = (event) => {
+        event.stopPropagation();
+        onDelete(id);
+    };
     return (
         <li className="chat-thread-item">
-            <a href={href} className="chat-thread-link">
-                {title}
-            </a>
+            <div className="chat-thread-item-content">
+                <a href={href} className="chat-thread-link">
+                    {title}
+                </a>
+                <button onClick={handleDelete} aria-label="delete chat thread item" type="button" className="deleteThread">&times;</button>
+            </div>
         </li>
     );
 }
 
-function ChatThreadsList({ threads }) {
+
+
+function ChatThreadsList({ threads = [], onDeleteThread }) {
     if (threads.length === 0) {
         return (
             <nav className="chat-threads-list" aria-label="Chat threads">
@@ -36,8 +47,8 @@ function ChatThreadsList({ threads }) {
                 {threads.map((thread) => (
                     <ChatThreadItem
                         key={thread.id}
-                        href={thread.href}
-                        title={thread.title}
+                        thread={thread}
+                        onDelete={onDeleteThread}
                     />
                 ))}
             </ul>
@@ -62,13 +73,13 @@ function SidebarFooter() {
     );
 }
 
-export default function Sidebar({ threads = [] }) {
+export default function Sidebar({ threads = [], onDeleteThread }) {
     return (
         <aside className="sidebar">
             {/* Sidebar header */}
             <SidebarHeader count={threads.length} />
             {/* Chat threads list */}
-            <ChatThreadsList threads={threads} />
+            <ChatThreadsList threads={threads} onDeleteThread={onDeleteThread} />
             {/* Sidebar footer */}
             <SidebarFooter />
         </aside>
