@@ -1,6 +1,7 @@
 import { ChatMessages, ChatInput } from "../components/Chat.jsx";
+import { useState } from "react";
 
-const messages = [
+const initialMessages = [
   {
     id: 1,
     type: "user",
@@ -69,10 +70,17 @@ const messages = [
 ];
 
 export default function Home() {
+  const [messages, setMessages] = useState(initialMessages);
+
+  function addMessage(text) {
+    setMessages((prevMessages) => [
+      ...prevMessages, { id: prevMessages.length + 1, type: "user", content: text }
+    ]);
+  };
   return (
     <main className="chat-container">
       <ChatMessages messages={messages} />
-      <ChatInput />
+      <ChatInput onAddMessage={addMessage} />
     </main>
   );
 }

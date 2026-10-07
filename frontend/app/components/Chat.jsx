@@ -29,16 +29,25 @@ export function ChatMessages({ messages }) {
     );
 }
 
-export function ChatInput() {
+export function ChatInput({ onAddMessage }) {
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     function handleSubmit(event) {
         event.preventDefault();
-        setIsSubmitting(true);
+        const form = event.target;
+        const formData = new FormData(form);
+        const message = formData.get("message").trim();
+        if (message === "") {
+            return console.error("Beskeden var tom :(");
 
-        setTimeout(() => {
-            setIsSubmitting(false);
-        }, 1000);
+        } else {
+            onAddMessage(message);
+            form.reset();
+            setIsSubmitting(true);
+            setTimeout(() => {
+                setIsSubmitting(false);
+            }, 1000);
+        }
     }
 
     return (
@@ -46,6 +55,7 @@ export function ChatInput() {
             <form className="chat-input-wrapper" onSubmit={handleSubmit}>
                 <textarea
                     className="chat-input"
+                    name="message"
                     placeholder="Type your message here..."
                     rows="1"
                 />
