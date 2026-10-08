@@ -48,6 +48,16 @@ export function ChatInput({ onAddMessage }) {
                 setIsSubmitting(false);
             }, 1000);
         }
+
+    }
+
+    function handleKeyDown(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            if (!isSubmitting) {
+                event.target.form.requestSubmit();
+            }
+        }
     }
 
     return (
@@ -58,6 +68,7 @@ export function ChatInput({ onAddMessage }) {
                     name="message"
                     placeholder="Type your message here..."
                     rows="1"
+                    onKeyDown={handleKeyDown}
                 />
                 <button className="send-button" type="submit" disabled={isSubmitting} >
                     {isSubmitting ? "Sending..." : "Send"}
