@@ -74,9 +74,10 @@ export default function Home() {
 
   function addMessage(text) {
     setMessages((prevMessages) => [
-      ...prevMessages, { id: prevMessages.length + 1, type: "user", content: text }
+      ...prevMessages,
+      { id: prevMessages.length + 1, type: "user", content: text },
     ]);
-  };
+  }
   return (
     <main className="chat-container">
       <ChatMessages messages={messages} />

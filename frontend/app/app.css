@@ -173,7 +173,9 @@ body {
   justify-content: center;
   margin-right: 0.5rem;
   opacity: 0;
-  transition: opacity 0.2s ease, background 0.1s ease;
+  transition:
+    opacity 0.2s ease,
+    background 0.1s ease;
 }
 
 /* Show delete button on thread item hover */
@@ -193,7 +195,6 @@ body {
   outline-offset: 1px;
   opacity: 1;
 }
-
 
 /* Sidebar footer */
 .sidebar-footer {
@@ -233,6 +234,21 @@ body {
   height: 100vh;
   width: 100%;
   padding: 0;
+}
+
+/* Chat thread header */
+.chat-thread-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-primary);
+}
+
+.chat-thread-header h2 {
+  max-width: 800px;
+  margin: 0 auto;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .chat-messages {
