@@ -1,81 +1,92 @@
-import { useState } from "react";
+import React from "react";
+import { Form } from "react-router";
 
-export function Message({ type, timestamp, children }) {
+/**
+ * Chat Components
+ *
+ * This file contains all chat-related components for the messaging interface.
+ * It demonstrates:
+ * 1. LOGICAL GROUPING: Related components organized in the same file
+ * 2. COMPONENT HIERARCHY: Message -> ChatMessages -> ChatInput
+ * 3. EXPORT PATTERNS: Multiple named exports from a single file
+ * 4. REUSABLE MODULES: Components that can be imported anywhere in the app
+ * 5. HOOKS USAGE: Components now use React hooks for state management
+ */
+
+/**
+ * Message Component
+ *
+ * Now uses PROPS DESTRUCTURING with default values! Key concepts:
+ * 1. DESTRUCTURING: Extract specific props directly from the props object
+ * 2. DEFAULT VALUES: Provide fallback values if props are undefined
+ * 3. CLEANER CODE: No need to repeat "props." throughout the component
+ * 4. SELF-DOCUMENTING: Shows exactly which props the component expects
+ */
+function Message({ type = "user", children }) {
   return (
     <div className={`message ${type}-message`}>
-      <div className="message-content">
-        {children}
-        <span className="message-timestamp">{timestamp}</span>
-      </div>
+      <div className="message-content">{children}</div>
     </div>
   );
 }
 
-export function ChatMessages({ messages }) {
+/**
+ * ChatMessages Component
+ *
+ * Now uses DESTRUCTURING WITH DEFAULT VALUES for safety! Key concepts:
+ * 1. DESTRUCTURING: Extract messages directly from props object
+ * 2. DEFAULT VALUES: messages = [] prevents errors if prop is undefined
+ * 3. ERROR PREVENTION: No more "Cannot read property 'map' of undefined"
+ * 4. GRACEFUL DEGRADATION: Component renders empty list if no messages provided
+ * 5. CLEANER CODE: Direct access to messages instead of props.messages
+ */
+function ChatMessages({ messages = [] }) {
   return (
     <div className="chat-messages">
-      {messages
-        // indkommenter nedenstående linje for at filtrere sig frem til brugerbeskederne (ekstraopgave 2)
-        // .filter((message) => message.type === "user")
-        .map((message) => (
-          <Message
-            key={message.id}
-            type={message.type}
-            timestamp={new Date(message.created_at).toLocaleTimeString("da-DK", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          >
-            {message.content}
-          </Message>
-        ))}
+      {/* Using destructured messages with safe default! */}
+      {messages.map((message) => (
+        <Message key={message.id} type={message.type}>
+          {message.content}
+        </Message>
+      ))}
     </div>
   );
 }
 
-export function ChatInput({ onAddMessage }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    const form = event.target;
-    const formData = new FormData(form);
-    const message = formData.get("message").trim();
-    if (message === "") {
-      return console.error("Beskeden var tom :(");
-    } else {
-      onAddMessage(message);
-      form.reset();
-      setIsSubmitting(true);
-      setTimeout(() => {
-        setIsSubmitting(false);
-      }, 1000);
-    }
-  }
-
-  function handleKeyDown(event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      if (!isSubmitting) {
-        event.target.form.requestSubmit();
-      }
-    }
-  }
-
+/**
+ * ChatInput Component
+ *
+ * Form component that handles user input for sending messages.
+ * Now uses React Router Form for data mutations:
+ * 1. FORM COMPONENT: React Router's Form for seamless data mutations
+ * 2. METHOD="POST": Triggers the route's clientAction when submitted
+ * 3. AUTOMATIC REVALIDATION: Data refreshes after successful submission
+ * 4. NO STATE NEEDED: Form clears and data reloads automatically
+ * 5. DECLARATIVE: Just render the form, React Router handles the rest
+ */
+function ChatInput() {
   return (
     <div className="chat-input-container">
-      <form className="chat-input-wrapper" onSubmit={handleSubmit}>
+      <Form method="post" className="chat-input-wrapper">
         <textarea
-          className="chat-input"
           name="message"
+          className="chat-input"
           placeholder="Type your message here..."
           rows="1"
-          onKeyDown={handleKeyDown}
+          required
         />
-        <button className="send-button" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Sending..." : "Send"}
+        <button className="send-button" type="submit">
+          Send
         </button>
-      </form>
+      </Form>
     </div>
   );
 }
+
+/**
+ * Named Exports
+ *
+ * We export each component individually so they can be imported separately
+ * if needed. This provides flexibility in how components are used.
+ */
+export { Message, ChatMessages, ChatInput };
