@@ -21,7 +21,10 @@ export function ChatMessages({ messages }) {
           <Message
             key={message.id}
             type={message.type}
-            timestamp={message.timestamp}
+            timestamp={new Date(message.created_at).toLocaleTimeString("da-DK", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           >
             {message.content}
           </Message>
