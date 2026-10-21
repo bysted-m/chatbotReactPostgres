@@ -104,48 +104,51 @@ export async function clientLoader({ params }) {
  * - Before the loader re-runs (automatic revalidation)
  */
 export async function clientAction({ params, request }) {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const apiUrl = import.meta.env.VITE_API_URL;
 
     // Extract form data from the request
     const formData = await request.formData();
     const content = formData.get("message");
 
-    // Validate message content
+    // Client-side validation: hurtig feedback uden et serverkald
     if (!content || !content.trim()) {
         return { error: "Message cannot be empty" };
     }
 
-    // Create the message object
+    // thread_id sendes ikke i body, den ligger i URL'en
     const newMessage = {
-        thread_id: params.threadId,
         type: "user",
         content: content.trim(),
     };
 
-    // POST to Supabase to create the message
     try {
-        const response = await fetch(`${supabaseUrl}/rest/v1/messages`, {
-            method: "POST",
-            headers: {
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-                "Content-Type": "application/json",
+        const response = await fetch(
+            `${apiUrl}/api/threads/${params.threadId}/messages`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(newMessage),
             },
-            body: JSON.stringify(newMessage),
-        });
+        );
+
+        // Valideringsfejl fra serveren
+        if (response.status === 400) {
+            const data = await response.json();
+            return { error: data.error || "Invalid message data" };
+        }
 
         if (!response.ok) {
             return { error: `Failed to create message: ${response.status}` };
         }
 
-        // Return success - loader will automatically revalidate
+        // Loaderen kører automatisk igen
         return { success: true };
     } catch (error) {
         return { error: error.message };
     }
 }
-
 /**
  * Chat Thread Route Component
  *

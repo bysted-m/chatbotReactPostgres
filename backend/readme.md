@@ -20,8 +20,6 @@ Express REST API med Postgres (Supabase).
 
 ## Endpoints
 
-## Endpoints
-
 ### GET /
 
 Statusbesked fra serveren.
@@ -90,20 +88,61 @@ Returnerer alle beskeder i en thread, ældste først. Hvis tråden ingen beskede
 ]
 ```
 
-## Test
+### POST /api/threads/:id/messages
 
-Start serveren med `npm run dev` i `backend/`. Hent først listen for at finde et rigtigt UUID, og erstat derefter `{id}` i de andre kald:
+Opretter en ny besked i en thread.
 
-```bash
-curl http://localhost:3000/api/threads
-curl http://localhost:3000/api/threads/{id}
-curl http://localhost:3000/api/threads/{id}/messages
+**URL Parameters:**
+
+- `id`: UUID for den thread, beskeden skal tilføjes til.
+
+**Request Body:**
+
+```json
+{
+    "type": "user",
+    "content": "Hvordan bruger jeg useParams?"
+}
 ```
 
-I PowerShell bruges `curl.exe` i stedet for `curl`. Du kan også åbne URL'erne direkte i browseren.
+**Request Body Fields:**
 
-Et UUID, der ikke findes, giver 404 på `/api/threads/{id}`:
+- `type` (påkrævet): Skal være enten `"user"` eller `"bot"`.
+- `content` (påkrævet): Beskedens tekst. Må ikke være tom eller kun mellemrum.
 
-```bash
-curl http://localhost:3000/api/threads/00000000-0000-0000-0000-000000000000
+**Response (201 Created):**
+
+```json
+{
+    "id": "789e4567-e89b-12d3-a456-426614174000",
+    "thread_id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
+    "type": "user",
+    "content": "Hvordan bruger jeg useParams?",
+    "created_at": "2025-10-13T12:30:05.000Z"
+}
 ```
+
+**Response (400 Bad Request):**
+
+Mangler `type` eller `content`:
+
+```json
+{
+    "error": "Both 'type' and 'content' are required"
+}
+```
+
+Ugyldig `type`:
+
+```json
+{
+    "error": "Type must be either 'user' or 'bot'"
+}
+```
+
+Tomt `content`:
+
+```json
+{
+    "error": "Content cannot be empty"
+}
