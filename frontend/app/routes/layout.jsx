@@ -18,30 +18,12 @@ import Sidebar from "../components/Sidebar.jsx";
  * - When React Router revalidates (after mutations)
  */
 export async function clientLoader() {
-  // Get Supabase credentials from environment variables
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/threads`);
 
-  // Construct the API endpoint URL
-  // - /rest/v1/threads: Access the threads table
-  // - select=*: Get all columns
-  // - order=created_at.desc: Sort by newest first
-  const url = `${supabaseUrl}/rest/v1/threads?select=*&order=created_at.desc`;
-
-  // Make the request with required Supabase headers
-  const response = await fetch(url, {
-    headers: {
-      apikey: supabaseKey, // Required for authentication
-      Authorization: `Bearer ${supabaseKey}`, // Required for authorization
-    },
-  });
-
-  // Check if the request was successful
   if (!response.ok) {
     throw new Error(`Failed to fetch threads: ${response.status}`);
   }
 
-  // Parse the JSON response
   const threads = await response.json();
 
   return { threads };
