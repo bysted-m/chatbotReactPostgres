@@ -35,8 +35,8 @@ export async function clientLoader() {
  * Handles thread deletion requests.
  * Key concepts:
  * 1. INTENT PATTERN: Uses form field to identify the action type
- * 2. DELETE REQUEST: Sends DELETE request to Supabase
- * 3. CASCADE DELETE: Supabase automatically deletes related messages
+ * 2. DELETE REQUEST: Sends DELETE request to our own Express API
+ * 3. CASCADE DELETE: The database automatically deletes related messages
  * 4. AUTOMATIC REVALIDATION: Loader re-runs to refresh thread list
  *
  * The action runs:
@@ -44,8 +44,7 @@ export async function clientLoader() {
  * - Checks the "intent" field to determine the action
  */
 export async function clientAction({ request }) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const apiUrl = import.meta.env.VITE_API_URL;
 
   // Extract form data
   const formData = await request.formData();
@@ -55,18 +54,11 @@ export async function clientAction({ request }) {
   // Handle delete intent
   if (intent === "delete" && threadId) {
     try {
-      // DELETE request to Supabase
+      // DELETE request to our Express API
       // Messages are automatically deleted due to CASCADE
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/threads?id=eq.${threadId}`,
-        {
-          method: "DELETE",
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-          },
-        },
-      );
+      const response = await fetch(`${apiUrl}/api/threads/${threadId}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         return { error: `Failed to delete thread: ${response.status}` };

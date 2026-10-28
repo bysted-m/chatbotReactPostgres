@@ -1,9 +1,11 @@
 import {
     useLoaderData,
     useActionData,
+    useNavigation,
     Link,
     useRouteError,
     href,
+    Outlet
 } from "react-router";
 import { ChatMessages, ChatInput } from "../components/Chat.jsx";
 
@@ -168,12 +170,38 @@ export default function ChatThread() {
     // Access the action result (success or error)
     const actionData = useActionData();
 
+    // Navigation state, bruges til optimistic UI
+    const navigation = useNavigation();
+
+    // Start med de rigtige beskeder fra loaderen
+    const displayMessages = [...messages];
+
+    // Mens en besked sendes, vis den og en "tænker"-besked med det samme
+    if (navigation.formData?.has("message")) {
+        displayMessages.push(
+            {
+                id: "optimistic-user",
+                type: "user",
+                content: navigation.formData.get("message"),
+            },
+            {
+                id: "optimistic-bot",
+                type: "bot",
+                content: "AI is thinking...",
+            },
+        );
+    }
+
     return (
         <main className="chat-container">
-            <div className="chat-thread-header">
+            <Outlet />
+            <div className="chat-thread-header chat-thread-header-row">
                 <h2>{thread.title}</h2>
+                <Link to="edit" className="thread-title-edit-link">
+                    Edit
+                </Link>
             </div>
-            <ChatMessages messages={messages} />
+            <ChatMessages messages={displayMessages} />
             <ChatInput />
             {actionData?.error && (
                 <div className="error-message">{actionData.error}</div>
