@@ -8,4 +8,7 @@ export default [
       route("edit", "routes/chat-thread-edit.jsx"),
     ]),
   ]),
+  // Uden for layoutet, så sidebaren ikke vises
+  route("login", "routes/login.jsx"),
+  route("register", "routes/register.jsx"),
 ];
