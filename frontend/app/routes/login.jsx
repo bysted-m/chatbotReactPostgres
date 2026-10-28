@@ -47,7 +47,7 @@ export default function Login() {
                     </div>
                 )}
 
-                <Form method="post">
+                <Form method="post" className="aut-form">
                     <div className="form-group">
                         <label htmlFor="email">Email</label>
                         <input

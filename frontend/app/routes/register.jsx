@@ -40,7 +40,7 @@ export default function Register() {
                 <h1>Create Account</h1>
                 <p className="auth-subtitle">Sign up to start chatting</p>
 
-                <Form method="post">
+                <Form method="post" className="auth-form">
                     <div className="form-group">
                         <label htmlFor="email">Email</label>
                         <input
