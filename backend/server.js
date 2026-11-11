@@ -59,8 +59,9 @@ app.get("/api/threads", requireAuth, async (req, res) => {
   try {
     // Execute SQL query using the sql`` tagged template
     const threads = await sql`
-      SELECT id, title, created_at 
+      SELECT id, title, created_at, user_id 
       FROM threads 
+      WHERE user_id = ${req.userId}
       ORDER BY created_at DESC
     `;
 
@@ -112,9 +113,9 @@ app.get("/api/threads/:id", requireAuth, async (req, res) => {
     // Execute SQL query with WHERE clause
     // The ${threadId} is safely parameterized by the postgres library
     const threads = await sql`
-      SELECT id, title, created_at 
+      SELECT id, title, created_at, user_id 
       FROM threads 
-      WHERE id = ${threadId}
+      WHERE id = ${threadId} AND user_id = ${req.userId}
     `;
 
     // Check if thread was found
@@ -159,8 +160,17 @@ app.get("/api/threads/:id/messages", requireAuth, async (req, res) => {
   try {
     const threadId = req.params.id;
 
-    // Fetch all messages for this thread
-    // Filter by thread_id foreign key and sort chronologically
+    // messages har ingen user_id, så ejeren tjekkes på tråden
+    const threads = await sql`
+      SELECT id
+      FROM threads
+      WHERE id = ${threadId} AND user_id = ${req.userId}
+    `;
+
+    if (threads.length === 0) {
+      return res.json([]);
+    }
+
     const messages = await sql`
       SELECT id, thread_id, type, content, created_at 
       FROM messages 
@@ -168,9 +178,6 @@ app.get("/api/threads/:id/messages", requireAuth, async (req, res) => {
       ORDER BY created_at ASC
     `;
 
-    // Return messages array (empty array if no messages yet)
-    // Unlike single thread endpoint, we don't 404 for empty results
-    // An empty thread is valid - it just has no messages yet
     res.json(messages);
   } catch (error) {
     console.error("Error fetching messages:", error);
@@ -232,6 +239,17 @@ app.post("/api/threads/:id/messages", requireAuth, async (req, res) => {
       return res.status(400).json({
         error: "Content cannot be empty",
       });
+    }
+
+    // Er tråden din? Ellers må du ikke skrive i den
+    const threads = await sql`
+  SELECT id
+  FROM threads
+  WHERE id = ${threadId} AND user_id = ${req.userId}
+`;
+
+    if (threads.length === 0) {
+      return res.status(404).json({ error: "Thread not found" });
     }
 
     // Insert the new message
@@ -308,12 +326,13 @@ app.post("/api/threads", requireAuth, async (req, res) => {
       });
     }
 
+
     // Step 1: Create the thread
     // Use RETURNING to get the generated ID for the next insert
     const threads = await sql`
-      INSERT INTO threads (title)
-      VALUES (${trimmedTitle})
-      RETURNING id, title, created_at
+      INSERT INTO threads (title, user_id)
+      VALUES (${trimmedTitle}, ${req.userId})
+      RETURNING id, title, user_id, created_at
     `;
 
     const thread = threads[0];
@@ -396,8 +415,8 @@ app.patch("/api/threads/:id", requireAuth, async (req, res) => {
     const result = await sql`
       UPDATE threads
       SET title = ${trimmedTitle}
-      WHERE id = ${threadId}
-      RETURNING id, title, created_at
+      WHERE id = ${threadId} AND user_id = ${req.userId}
+      RETURNING id, title, user_id, created_at
     `;
 
     // If no thread was updated, it means the thread doesn't exist
@@ -437,7 +456,7 @@ app.delete("/api/threads/:id", requireAuth, async (req, res) => {
     // because of the ON DELETE CASCADE constraint on the messages table
     const result = await sql`
       DELETE FROM threads
-      WHERE id = ${threadId}
+      WHERE id = ${threadId} AND user_id = ${req.userId}
       RETURNING id
     `;
 
