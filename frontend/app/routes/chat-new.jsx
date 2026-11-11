@@ -1,23 +1,23 @@
 import { useActionData, redirect } from "react-router";
 import { ChatInput, ChatMessages } from "../components/Chat.jsx";
+import { apiFetch } from "../lib/apiFetch.js";
 
 /**
  * CLIENT ACTION FUNCTION
  *
  * Handles creation of new chat threads with their first message.
  * Key concepts:
- * 1. SINGLE REQUEST: Our Express API creates both thread and message
+ * 1. COMPOUND OPERATION: Single API call creates both thread and message
  * 2. REDIRECT: Navigate to new thread after successful creation
  * 3. TITLE GENERATION: Create thread title from first message
  * 4. ERROR HANDLING: Validate input and handle API errors
+ * 5. AUTHENTICATED REQUESTS: Uses apiFetch to include JWT token
  *
  * The action runs:
  * - When a Form with method="post" is submitted
  * - Returns a redirect to navigate to the new thread
  */
 export async function clientAction({ request }) {
-  const apiUrl = import.meta.env.VITE_API_URL;
-
   // Extract form data
   const formData = await request.formData();
   const content = formData.get("message");
@@ -34,28 +34,35 @@ export async function clientAction({ request }) {
       : content.trim();
 
   try {
-    // One request creates both the thread and the first message
-    const response = await fetch(`${apiUrl}/api/threads`, {
+    // Create the thread with its first message in a single request
+    // Our custom API handles both operations as a compound mutation
+    // apiFetch automatically includes the JWT token and handles the base URL
+    const response = await apiFetch("/api/threads", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ title, content: content.trim() }),
+      body: JSON.stringify({
+        title: title,
+        content: content.trim(),
+      }),
     });
 
-    // Valideringsfejl fra serveren
+    // Check for validation errors (400)
     if (response.status === 400) {
-      const data = await response.json();
-      return { error: data.error || "Invalid thread data" };
+      const error = await response.json();
+      return { error: error.error || "Invalid thread data" };
     }
 
+    // Check for other errors
     if (!response.ok) {
       return { error: `Failed to create thread: ${response.status}` };
     }
 
-    // Response has the shape { thread, message }
+    // Get the created thread data
     const data = await response.json();
 
+    // Redirect to the new thread
     return redirect(`/chat/${data.thread.id}`);
   } catch (error) {
     return { error: error.message };

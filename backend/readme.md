@@ -1,322 +1,99 @@
-# Chatbot API
+# Chatbot Backend API
 
-Express REST API med Postgres (Supabase).
+Express.js REST API for the chatbot application. This API connects to a PostgreSQL database hosted on Supabase.
 
-## Opsætning
+## Setup
 
-1. Kør `npm install` i `backend/`.
-2. Kopiér `.env.example` til `.env` og udfyld `DATABASE_URL` med din Supabase transaction pooler-streng.
-3. Start serveren med `npm run dev`.
+### 1. Install Dependencies
 
-## Scripts
+```bash
+npm install
+```
 
-- `npm start`: starter serveren.
-- `npm run dev`: starter serveren og genstarter ved filændringer.
+### 2. Configure Environment Variables
 
-## Miljøvariabler
+Make a copy of `.env.example` in the `backend` folder and call it `.env`. (**Note:** This is a separate `.env` file from the one in the `frontend` folder.)
 
-- `DATABASE_URL`: forbindelsesstreng til Supabase (port 6543).
-- `PORT`: serverens port. Standard er 3000.
+Edit `backend/.env` and add your Supabase database connection string:
 
-## Endpoints
+```env
+DATABASE_URL=postgresql://postgres.[YOUR-PROJECT-REF]:[YOUR-PASSWORD]@aws-1-eu-north-1.pooler.supabase.com:6543/postgres
+PORT=3000
+```
+
+To find your DATABASE_URL:
+
+1. Go to your Supabase project dashboard
+2. Click the **Connect** button in the header
+3. Under **Connection String** > **URI**, copy the connection string listed under **Transaction pooler**.
+4. Replace `[YOUR-PASSWORD]` with your database password
+
+### 3. Start the Server
+
+Development mode (with auto-restart on file changes):
+
+```bash
+npm run dev
+```
+
+Production mode:
+
+```bash
+npm start
+```
+
+The server will start on `http://localhost:3000`
+
+## API Endpoints
 
 ### GET /
 
-Statusbesked fra serveren.
+Health check endpoint to verify the server is running.
+
+**Response:**
+
+```json
+{
+  "message": "Chatbot API Server 🤖",
+  "version": "1.0.0"
+}
+```
 
 ### GET /api/threads
 
-Returnerer alle threads, nyeste først.
+Fetches all chat threads, ordered by creation date (newest first).
 
-**Response (200 OK):**
+**Response:**
 
 ```json
 [
-    {
-        "id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
-        "title": "Hjælp til React Router",
-        "created_at": "2025-10-13T12:30:00.000Z"
-    }
+  {
+    "id": "uuid",
+    "title": "Thread title",
+    "created_at": "2025-10-13T10:30:00Z"
+  }
 ]
 ```
 
 ### GET /api/threads/:id
 
-Returnerer én thread.
+Fetches a single thread by its ID.
 
 **URL Parameters:**
 
-- `id`: UUID for den thread, der skal hentes.
+- `id` - The UUID of the thread
 
 **Response (200 OK):**
 
 ```json
 {
-    "id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
-    "title": "Hjælp til React Router",
-    "created_at": "2025-10-13T12:30:00.000Z"
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "title": "My chat thread",
+  "created_at": "2025-10-13T10:30:00Z"
 }
 ```
 
 **Response (404 Not Found):**
-
-```json
-{
-    "error": "Thread not found"
-}
-```
-
-### GET /api/threads/:id/messages
-
-Returnerer alle beskeder i en thread, ældste først. Hvis tråden ingen beskeder har (eller ikke findes), returneres et tomt array `[]`.
-
-**URL Parameters:**
-
-- `id`: UUID for den thread, hvis beskeder skal hentes.
-
-**Response (200 OK):**
-
-```json
-[
-    {
-        "id": "a1b2c3d4-0000-4000-8000-000000000001",
-        "thread_id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
-        "type": "user",
-        "content": "Hvordan bruger jeg useParams?",
-        "created_at": "2025-10-13T12:30:05.000Z"
-    }
-]
-```
-
-### POST /api/threads
-
-Opretter en ny thread og dens første besked i ét request. Det er en sammensat operation: serveren opretter først tråden og derefter beskeden (med `type: "user"`) i den nye tråd.
-
-**Request Body:**
-
-```json
-{
-    "title": "Hjælp til React Router",
-    "content": "Hvordan bruger jeg useParams?"
-}
-```
-
-**Request Body Fields:**
-
-- `title` (påkrævet): Trådens titel. Må ikke være tom eller kun mellemrum.
-- `content` (påkrævet): Den første besked i tråden. Må ikke være tom eller kun mellemrum.
-
-**Response (201 Created):**
-
-```json
-{
-    "thread": {
-        "id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
-        "title": "Hjælp til React Router",
-        "created_at": "2025-10-14T09:30:00.000Z"
-    },
-    "message": {
-        "id": "a1b2c3d4-0000-4000-8000-000000000001",
-        "thread_id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
-        "type": "user",
-        "content": "Hvordan bruger jeg useParams?",
-        "created_at": "2025-10-14T09:30:00.000Z"
-    }
-}
-```
-
-**Response (400 Bad Request):**
-
-Mangler `title` eller `content`:
-
-```json
-{
-    "error": "Both 'title' and 'content' are required"
-}
-```
-
-Tom `title` eller tomt `content` (kun mellemrum):
-
-```json
-{
-    "error": "Title and content cannot be empty"
-}
-```
-
-**Test med curl:**
-
-```bash
-# Opret en thread med første besked
-curl -X POST http://localhost:3000/api/threads \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Test Thread","content":"Hello, this is my first message!"}'
-
-# Valideringsfejl: content mangler
-curl -X POST http://localhost:3000/api/threads \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Thread uden besked"}'
-```
-
-### POST /api/threads/:id/messages
-
-Opretter en ny besked i en thread.
-
-**URL Parameters:**
-
-- `id`: UUID for den thread, beskeden skal tilføjes til.
-
-**Request Body:**
-
-```json
-{
-    "type": "user",
-    "content": "Hvordan bruger jeg useParams?"
-}
-```
-
-**Request Body Fields:**
-
-- `type` (påkrævet): Skal være enten `"user"` eller `"bot"`.
-- `content` (påkrævet): Beskedens tekst. Må ikke være tom eller kun mellemrum.
-
-**Response (201 Created):**
-
-```json
-{
-    "id": "789e4567-e89b-12d3-a456-426614174000",
-    "thread_id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
-    "type": "user",
-    "content": "Hvordan bruger jeg useParams?",
-    "created_at": "2025-10-13T12:30:05.000Z"
-}
-```
-
-**Response (400 Bad Request):**
-
-Mangler `type` eller `content`:
-
-```json
-{
-    "error": "Both 'type' and 'content' are required"
-}
-```
-
-Ugyldig `type`:
-
-```json
-{
-    "error": "Type must be either 'user' or 'bot'"
-}
-```
-
-Tomt `content`:
-
-```json
-{
-    "error": "Content cannot be empty"
-}
-```
-
-### PATCH /api/threads/:id
-
-Opdaterer titlen på en thread. Det er en delvis opdatering: kun `title` ændres, og resten af tråden (fx `created_at`) forbliver uændret.
-
-**URL Parameters:**
-
-- `id`: UUID for den thread, der skal opdateres.
-
-**Request Body:**
-
-```json
-{
-    "title": "Nyt navn til tråden"
-}
-```
-
-**Request Body Fields:**
-
-- `title` (påkrævet): Den nye titel. Må ikke være tom eller kun mellemrum.
-
-**Response (200 OK):**
-
-```json
-{
-    "id": "3f2b8c1e-9a4d-4e7b-8c55-1d2e6f7a9b01",
-    "title": "Nyt navn til tråden",
-    "created_at": "2025-10-14T09:30:00.000Z"
-}
-```
-
-**Response (400 Bad Request):**
-
-Mangler `title`:
-
-```json
-{
-    "error": "Title is required"
-}
-```
-
-Tom `title` (kun mellemrum):
-
-```json
-{
-    "error": "Title cannot be empty"
-}
-```
-
-**Response (404 Not Found):**
-
-```json
-{
-    "error": "Thread not found"
-}
-```
-
-**Bemærk:** Endpointet bruger PATCH og ikke PUT, fordi kun `title` opdateres. PUT ville betyde, at hele tråden erstattes.
-
-**Test med curl:**
-
-```bash
-# Opdatér titlen (erstat med et rigtigt thread-id)
-curl -X PATCH http://localhost:3000/api/threads/YOUR-THREAD-ID \
-  -H "Content-Type: application/json" \
-  -d '{"title":"My Updated Title"}'
-
-# Valideringsfejl: tom titel
-curl -X PATCH http://localhost:3000/api/threads/YOUR-THREAD-ID \
-  -H "Content-Type: application/json" \
-  -d '{"title":""}'
-
-# 404: thread findes ikke
-curl -X PATCH http://localhost:3000/api/threads/00000000-0000-0000-0000-000000000000 \
-  -H "Content-Type: application/json" \
-  -d '{"title":"New Title"}'
-```
-
-### DELETE /api/threads/:id
-
-Permanently deletes a thread and all of its messages.
-
-> **Warning:** This operation is irreversible. The thread's messages are deleted automatically through the database's `ON DELETE CASCADE` constraint.
-
-**Parameters**
-
-| Name | In   | Description                |
-| ---- | ---- | -------------------------- |
-| id   | path | The UUID of the thread     |
-
-**Success response (200 OK)**
-
-```json
-{
-  "message": "Thread deleted"
-}
-```
-
-**Error response (404 Not Found)**
-
-Returned when no thread with the given id exists. This also happens if the same delete request is sent twice.
 
 ```json
 {
@@ -324,12 +101,324 @@ Returned when no thread with the given id exists. This also happens if the same 
 }
 ```
 
-**Testing**
+### GET /api/threads/:id/messages
+
+Fetches all messages for a specific thread, ordered chronologically (oldest first).
+
+**URL Parameters:**
+
+- `id` - The UUID of the thread
+
+**Response:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "thread_id": "uuid",
+    "type": "user",
+    "content": "Hello, how are you?",
+    "created_at": "2025-10-13T10:30:00Z"
+  },
+  {
+    "id": "uuid",
+    "thread_id": "uuid",
+    "type": "bot",
+    "content": "I'm doing well, thank you!",
+    "created_at": "2025-10-13T10:30:15Z"
+  }
+]
+```
+
+**Note:** Returns an empty array `[]` if the thread has no messages.
+
+### POST /api/threads
+
+Creates a new thread with an initial message. This is a compound operation that creates both the thread and its first message in a single request.
+
+**Request Body:**
+
+```json
+{
+  "title": "Thread title",
+  "content": "First message content"
+}
+```
+
+**Request Body Fields:**
+
+- `title` (required) - The thread title (cannot be empty)
+- `content` (required) - The initial message text (cannot be empty)
+
+**Response (201 Created):**
+
+```json
+{
+  "thread": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "title": "Thread title",
+    "created_at": "2025-10-13T10:30:00Z"
+  },
+  "message": {
+    "id": "789e4567-e89b-12d3-a456-426614174000",
+    "thread_id": "123e4567-e89b-12d3-a456-426614174000",
+    "type": "user",
+    "content": "First message content",
+    "created_at": "2025-10-13T10:30:00Z"
+  }
+}
+```
+
+**Response (400 Bad Request):**
+
+```json
+{
+  "error": "Both 'title' and 'content' are required"
+}
+```
+
+or
+
+```json
+{
+  "error": "Title cannot be empty"
+}
+```
+
+or
+
+```json
+{
+  "error": "Content cannot be empty"
+}
+```
+
+**Note:** This endpoint performs two database operations: it creates the thread first, then creates the initial message. Both operations are done in sequence within the same request to ensure consistency.
+
+### POST /api/threads/:id/messages
+
+Creates a new message in a thread.
+
+**URL Parameters:**
+
+- `id` - The UUID of the thread
+
+**Request Body:**
+
+```json
+{
+  "type": "user",
+  "content": "This is my message"
+}
+```
+
+**Request Body Fields:**
+
+- `type` (required) - Must be either `"user"` or `"bot"`
+- `content` (required) - The message text (cannot be empty)
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "789e4567-e89b-12d3-a456-426614174000",
+  "thread_id": "123e4567-e89b-12d3-a456-426614174000",
+  "type": "user",
+  "content": "This is my message",
+  "created_at": "2025-10-13T10:35:00Z"
+}
+```
+
+**Response (400 Bad Request):**
+
+```json
+{
+  "error": "Both 'type' and 'content' are required"
+}
+```
+
+or
+
+```json
+{
+  "error": "Type must be either 'user' or 'bot'"
+}
+```
+
+or
+
+```json
+{
+  "error": "Content cannot be empty"
+}
+```
+
+### PATCH /api/threads/:id
+
+Updates a thread's title. This is a partial update - only the title field is modified.
+
+**URL Parameters:**
+
+- `id` - The UUID of the thread to update
+
+**Request Body:**
+
+```json
+{
+  "title": "Updated thread title"
+}
+```
+
+**Request Body Fields:**
+
+- `title` (required) - The new thread title (cannot be empty)
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "title": "Updated thread title",
+  "created_at": "2025-10-13T10:30:00Z"
+}
+```
+
+**Response (400 Bad Request):**
+
+```json
+{
+  "error": "Title is required"
+}
+```
+
+or
+
+```json
+{
+  "error": "Title cannot be empty"
+}
+```
+
+**Response (404 Not Found):**
+
+```json
+{
+  "error": "Thread not found"
+}
+```
+
+**Note:** This endpoint uses PATCH (not PUT) because it only updates specific fields rather than replacing the entire resource. Other fields like `created_at` remain unchanged.
+
+### DELETE /api/threads/:id
+
+Deletes a thread and all its associated messages. The database CASCADE constraint automatically removes all messages when a thread is deleted.
+
+**URL Parameters:**
+
+- `id` - The UUID of the thread to delete
+
+**Response (200 OK):**
+
+```json
+{
+  "message": "Thread deleted successfully",
+  "deletedId": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+**Response (404 Not Found):**
+
+```json
+{
+  "error": "Thread not found"
+}
+```
+
+**Note:** This is a destructive operation that cannot be undone. All messages in the thread will be permanently deleted due to the `ON DELETE CASCADE` constraint in the database schema.
+
+## Testing
+
+### Test with curl
 
 ```bash
-# Delete a thread (replace with a real thread id)
-curl -X DELETE http://localhost:3000/api/threads/YOUR-THREAD-ID
+# Health check
+curl http://localhost:3000/
 
-# Test the 404 response safely with a non-existent UUID
+# Get all threads
+curl http://localhost:3000/api/threads
+
+# Get a specific thread (replace with an actual UUID from your database)
+curl http://localhost:3000/api/threads/123e4567-e89b-12d3-a456-426614174000
+
+# Get messages for a thread
+curl http://localhost:3000/api/threads/123e4567-e89b-12d3-a456-426614174000/messages
+
+# Create a new thread with initial message (POST request)
+curl -X POST http://localhost:3000/api/threads \
+  -H "Content-Type: application/json" \
+  -d '{"title":"My new thread","content":"This is the first message"}'
+
+# Test validation - missing content (should return 400)
+curl -X POST http://localhost:3000/api/threads \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Thread without message"}'
+
+# Test validation - empty title (should return 400)
+curl -X POST http://localhost:3000/api/threads \
+  -H "Content-Type: application/json" \
+  -d '{"title":"   ","content":"Message with empty title"}'
+
+# Create a new message (POST request)
+curl -X POST http://localhost:3000/api/threads/123e4567-e89b-12d3-a456-426614174000/messages \
+  -H "Content-Type: application/json" \
+  -d '{"type":"user","content":"Hello from curl!"}'
+
+# Test validation - missing content (should return 400)
+curl -X POST http://localhost:3000/api/threads/123e4567-e89b-12d3-a456-426614174000/messages \
+  -H "Content-Type: application/json" \
+  -d '{"type":"user"}'
+
+# Test validation - invalid type (should return 400)
+curl -X POST http://localhost:3000/api/threads/123e4567-e89b-12d3-a456-426614174000/messages \
+  -H "Content-Type: application/json" \
+  -d '{"type":"admin","content":"This should fail"}'
+
+# Delete a thread (DELETE request)
+curl -X DELETE http://localhost:3000/api/threads/123e4567-e89b-12d3-a456-426614174000
+
+# Test deleting a non-existent thread (should return 404)
 curl -X DELETE http://localhost:3000/api/threads/00000000-0000-0000-0000-000000000000
 ```
+
+### Test with Browser
+
+GET endpoints can be tested in the browser:
+
+- `http://localhost:3000/` - Should show the welcome message
+- `http://localhost:3000/api/threads` - Should show the list of threads
+- `http://localhost:3000/api/threads/{id}` - Replace `{id}` with an actual thread UUID
+- `http://localhost:3000/api/threads/{id}/messages` - Shows messages for a specific thread
+
+POST endpoints require a tool like:
+
+- curl (see examples above)
+- Postman
+- Thunder Client (VS Code extension)
+- Or test through your frontend application
+
+## Project Structure
+
+```
+backend/
+├── .env.example      # Environment variables template
+├── .gitignore        # Git ignore rules
+├── db.js             # Database connection setup
+├── package.json      # Node.js dependencies and scripts
+├── server.js         # Express server and API routes
+└── README.md         # This file
+```
+
+## Learning Resources
+
+- [Express.js Documentation](https://expressjs.com/)
+- [Postgres.js Documentation](https://github.com/porsager/postgres)

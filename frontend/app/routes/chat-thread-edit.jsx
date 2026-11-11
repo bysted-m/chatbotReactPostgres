@@ -1,83 +1,121 @@
 import {
-    Form,
-    Link,
-    redirect,
-    useActionData,
-    useRouteLoaderData,
+  useActionData,
+  Form,
+  redirect,
+  Link,
+  useRouteLoaderData,
 } from "react-router";
+import { apiFetch } from "../lib/apiFetch.js";
+
+/**
+ * Edit Thread Title Route Component
+ *
+ * Simple form to edit a thread's title.
+ * Key concepts:
+ * 1. DEDICATED ROUTE: Separate page for editing
+ * 2. NESTED ROUTE: Child route of chat-thread, rendered in Outlet
+ * 3. useRouteLoaderData(): Access parent route's loader data without refetching
+ * 4. SIMPLE FORM: Just one input field and buttons
+ * 5. UNCONTROLLED INPUT: Using defaultValue, read from formData in action
+ * 6. REDIRECT ON SUCCESS: Returns to parent route after save
+ * 7. NAVIGATION: URL represents UI state (editing vs viewing)
+ */
+export default function ChatThreadEdit() {
+  // Access the thread data from the parent route's loader
+  // useRouteLoaderData avoids needing a separate clientLoader here
+  const { thread } = useRouteLoaderData("routes/chat-thread");
+
+  // Access any errors from the action
+  const actionData = useActionData();
+
+  return (
+    <div className="edit-title-overlay">
+      <Form method="post" className="edit-title-form">
+        <div className="form-field">
+          <label htmlFor="title">Edit thread title</label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            defaultValue={thread.title}
+            autoFocus
+            required
+            className="title-input"
+          />
+        </div>
+
+        <div className="form-buttons">
+          <button type="submit" className="save-button">
+            Save
+          </button>
+          <Link to=".." className="cancel-button">
+            Cancel
+          </Link>
+        </div>
+      </Form>
+      {actionData?.error && (
+        <div className="error-message">{actionData.error}</div>
+      )}
+    </div>
+  );
+}
 
 /**
  * CLIENT ACTION FUNCTION
  *
- * Sender den nye titel til Express API'et med PATCH.
- * Redirecter til parent route (tråd-visningen) ved succes.
+ * Handles the form submission to update the thread title.
+ * Key concepts:
+ * 1. PATCH REQUEST: Partial update of the thread resource
+ * 2. VALIDATION: Check that title is not empty
+ * 3. REDIRECT: Navigate back to thread view on success
+ * 4. ERROR HANDLING: Return errors to display in UI
+ * 5. AUTHENTICATED REQUESTS: Uses apiFetch to include JWT token
+ *
+ * The action runs:
+ * - When the Form with method="post" is submitted
+ * - Returns redirect to parent route on success
  */
 export async function clientAction({ params, request }) {
-    const apiUrl = import.meta.env.VITE_API_URL;
+  // Extract form data
+  const formData = await request.formData();
+  const title = formData.get("title");
 
-    const formData = await request.formData();
-    const title = formData.get("title");
+  // Validate title
+  if (!title || !title.trim()) {
+    return { error: "Title cannot be empty" };
+  }
 
-    // Hurtig feedback uden et serverkald
-    if (!title || !title.trim()) {
-        return { error: "Title cannot be empty" };
+  try {
+    // PATCH to our custom API to update the thread title
+    // apiFetch automatically includes the JWT token and handles the base URL
+    const response = await apiFetch(`/api/threads/${params.threadId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title: title.trim() }),
+    });
+
+    // Check for validation errors (400)
+    if (response.status === 400) {
+      const error = await response.json();
+      return { error: error.error || "Invalid title" };
     }
 
-    try {
-        const response = await fetch(`${apiUrl}/api/threads/${params.threadId}`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ title: title.trim() }),
-        });
-
-        // Valideringsfejl fra serveren
-        if (response.status === 400) {
-            const data = await response.json();
-            return { error: data.error || "Invalid title" };
-        }
-
-        if (!response.ok) {
-            return { error: `Failed to update thread: ${response.status}` };
-        }
-
-        // ".." går et niveau op, tilbage til /chat/:threadId
-        return redirect("..");
-    } catch (error) {
-        return { error: error.message };
+    // Check for not found (404)
+    if (response.status === 404) {
+      return { error: "Thread not found" };
     }
-}
 
-export default function ChatThreadEdit() {
-    // Parent routens data, så vi ikke henter tråden igen
-    const { thread } = useRouteLoaderData("routes/chat-thread");
-    const actionData = useActionData();
+    // Check for other errors
+    if (!response.ok) {
+      return { error: `Failed to update title: ${response.status}` };
+    }
 
-    return (
-        <div className="edit-title-overlay">
-            <Form method="post" className="edit-title-form">
-                <div className="form-field">
-                    <label htmlFor="title">Thread title</label>
-                    <input
-                        id="title"
-                        type="text"
-                        name="title"
-                        className="title-input"
-                        defaultValue={thread.title}
-                        autoFocus
-                    />
-                </div>
-                <button type="submit" className="save-button">
-                    Save
-                </button>
-                <Link to=".." className="cancel-button">
-                    Cancel
-                </Link>
-            </Form>
-            {actionData?.error && (
-                <div className="error-message">{actionData.error}</div>
-            )}
-        </div>
-    );
+    // Success! Redirect back to the thread view
+    // ".." navigates to the parent route
+    return redirect("..");
+  } catch (error) {
+    return { error: error.message };
+  }
 }

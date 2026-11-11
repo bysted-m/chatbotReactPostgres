@@ -1,308 +1,467 @@
+// ========== Import dependencies ========== //
 import express from "express";
 import cors from "cors";
-import { sql } from "./db.js";
+import sql from "./db.js";
+import { requireAuth } from "./auth.js";
 
+// ========== Setup Express App ========== //
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ========== Middleware ========== //
+// Middleware functions run in order for each request
+
+// Enable CORS (Cross-Origin Resource Sharing)
+// This allows our frontend (running on http://localhost:5173) to make requests
+// to this API (running on http://localhost:3000)
+// Without CORS, browsers block requests between different origins for security
 app.use(cors());
+
+// Parse JSON request bodies
+// This middleware reads the body of POST/PUT/PATCH requests and parses JSON
+// Makes the parsed data available as req.body in route handlers
+// Without this, req.body would be undefined
 app.use(express.json());
 
-// get methods
+// ========== Define API Endpoints ========== //
 
+// Root endpoint - verify server is running
 app.get("/", (req, res) => {
-    res.json({ message: "Chatbot API Server 🤖", version: "1.0.0" });
+  res.json({
+    message: "Chatbot API Server 🤖",
+    version: "1.0.0",
+  });
 });
 
-app.get("/api/threads", async (req, res) => {
-    try {
-        const threads = await sql`
-      SELECT id, title, created_at
-      FROM threads
+/**
+ * GET /api/threads
+ *
+ * Fetches all chat threads from the database, ordered by creation date (newest first).
+ *
+ * Authentication:
+ * - Protected by requireAuth middleware
+ * - Requires valid JWT token in Authorization header
+ * - req.userId is available (will be used in PR #17 for filtering)
+ *
+ * SQL Concepts:
+ * - SELECT: Retrieve data from the database
+ * - Specific columns: Only fetch the columns we need (id, title, created_at)
+ * - ORDER BY: Sort the results
+ * - DESC: Descending order (newest first)
+ *
+ * API Concepts:
+ * - async/await: Handle asynchronous database queries
+ * - try/catch: Handle errors gracefully
+ * - Status codes: 200 for success, 500 for server errors
+ * - JSON response: Return data in a format the frontend can use
+ */
+app.get("/api/threads", requireAuth, async (req, res) => {
+  try {
+    // Execute SQL query using the sql`` tagged template
+    const threads = await sql`
+      SELECT id, title, created_at 
+      FROM threads 
       ORDER BY created_at DESC
     `;
-        res.json(threads);
-    } catch (error) {
-        console.error("Kunne ikke hente threads:", error);
-        res.status(500).json({ error: "Noget gik galt på serveren" });
-    }
+
+    // Return the threads as JSON
+    // Express automatically sets Content-Type: application/json
+    res.json(threads);
+  } catch (error) {
+    // Log the error for debugging (you should see this in the terminal)
+    console.error("Error fetching threads:", error);
+
+    // Return a generic error message to the client
+    // Don't expose internal error details for security
+    res.status(500).json({
+      error: "Failed to fetch threads from database",
+    });
+  }
 });
 
-app.get("/api/threads/:id", async (req, res) => {
+/**
+ * GET /api/threads/:id
+ *
+ * Fetches a single thread by its ID.
+ *
+ * Authentication:
+ * - Protected by requireAuth middleware
+ * - Requires valid JWT token in Authorization header
+ * - req.userId is available (will be used in PR #17 for authorization)
+ *
+ * SQL Concepts:
+ * - WHERE clause: Filter results to match a specific condition
+ * - Parameterized queries: Safely include user input in SQL queries
+ * - Primary key lookup: Fast retrieval using the id column
+ *
+ * API Concepts:
+ * - Route parameters: Dynamic URL segments (the :id part)
+ * - 404 Not Found: Return when requested resource doesn't exist
+ * - req.params: Access route parameters from the URL
+ *
+ * Security:
+ * - Tagged template (sql``) prevents SQL injection
+ * - Even with user input, the query is safe from malicious SQL
+ */
+app.get("/api/threads/:id", requireAuth, async (req, res) => {
+  try {
+    // Extract the thread ID from the URL
+    // For /api/threads/123, req.params.id will be "123"
     const threadId = req.params.id;
 
-    try {
-        const threads = await sql`
-      SELECT id, title, created_at
-      FROM threads
+    // Execute SQL query with WHERE clause
+    // The ${threadId} is safely parameterized by the postgres library
+    const threads = await sql`
+      SELECT id, title, created_at 
+      FROM threads 
       WHERE id = ${threadId}
     `;
 
-        if (threads.length === 0) {
-            return res.status(404).json({ error: "Thread not found" });
-        }
-
-        res.json(threads[0]);
-    } catch (error) {
-        console.error("Kunne ikke hente thread:", error);
-        res.status(500).json({ error: "Noget gik galt på serveren" });
+    // Check if thread was found
+    // SQL returns an empty array if no matches
+    if (threads.length === 0) {
+      return res.status(404).json({
+        error: "Thread not found",
+      });
     }
+
+    // Return the first (and only) thread
+    res.json(threads[0]);
+  } catch (error) {
+    console.error("Error fetching thread:", error);
+    res.status(500).json({
+      error: "Failed to fetch thread from database",
+    });
+  }
 });
 
-app.get("/api/threads/:id/messages", async (req, res) => {
+/**
+ * GET /api/threads/:id/messages
+ *
+ * Fetches all messages for a specific thread, ordered chronologically.
+ *
+ * Authentication:
+ * - Protected by requireAuth middleware
+ * - Requires valid JWT token in Authorization header
+ * - req.userId is available (will be used in PR #17 for authorization)
+ *
+ * SQL Concepts:
+ * - WHERE with foreign key: Filter messages by their thread_id
+ * - ORDER BY ASC: Sort in ascending order (oldest first)
+ * - Relationships: Connect messages to threads via thread_id
+ *
+ * API Concepts:
+ * - Nested resources: Messages belong to a thread
+ * - RESTful routing: /resource/:id/sub-resource pattern
+ * - Chronological ordering: Natural order for chat messages
+ */
+app.get("/api/threads/:id/messages", requireAuth, async (req, res) => {
+  try {
     const threadId = req.params.id;
 
-    try {
-        const messages = await sql`
-      SELECT id, thread_id, type, content, created_at
-      FROM messages
+    // Fetch all messages for this thread
+    // Filter by thread_id foreign key and sort chronologically
+    const messages = await sql`
+      SELECT id, thread_id, type, content, created_at 
+      FROM messages 
       WHERE thread_id = ${threadId}
       ORDER BY created_at ASC
     `;
 
-        res.json(messages);
-    } catch (error) {
-        console.error("Kunne ikke hente messages:", error);
-        res.status(500).json({ error: "Noget gik galt på serveren" });
-    }
+    // Return messages array (empty array if no messages yet)
+    // Unlike single thread endpoint, we don't 404 for empty results
+    // An empty thread is valid - it just has no messages yet
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    res.status(500).json({
+      error: "Failed to fetch messages from database",
+    });
+  }
 });
 
-// post methods
+/**
+ * POST /api/threads/:id/messages
+ *
+ * Creates a new message in a thread.
+ *
+ * Authentication:
+ * - Protected by requireAuth middleware
+ * - Requires valid JWT token in Authorization header
+ * - req.userId is available (will be used in PR #17 for authorization)
+ *
+ * SQL Concepts:
+ * - INSERT INTO: Add new rows to a table
+ * - VALUES: Specify the data to insert
+ * - RETURNING: Get back the inserted row (PostgreSQL-specific feature)
+ *
+ * API Concepts:
+ * - POST method: Used for creating new resources
+ * - Request body: Data sent from client (accessed via req.body)
+ * - 201 Created: Success status for resource creation
+ * - 400 Bad Request: Client sent invalid data
+ * - Input validation: Never trust user input
+ *
+ * Security:
+ * - Validate all inputs before using them
+ * - Parameterized queries prevent SQL injection
+ * - Return helpful error messages without exposing internals
+ */
+app.post("/api/threads/:id/messages", requireAuth, async (req, res) => {
+  try {
+    const threadId = req.params.id;
+    const { type, content } = req.body;
 
-app.post("/api/threads", async (req, res) => {
+    // Validate required fields
+    if (!type || !content) {
+      return res.status(400).json({
+        error: "Both 'type' and 'content' are required",
+      });
+    }
+
+    // Validate type is either 'user' or 'bot'
+    if (type !== "user" && type !== "bot") {
+      return res.status(400).json({
+        error: "Type must be either 'user' or 'bot'",
+      });
+    }
+
+    // Validate content is not empty after trimming
+    const trimmedContent = content.trim();
+    if (trimmedContent.length === 0) {
+      return res.status(400).json({
+        error: "Content cannot be empty",
+      });
+    }
+
+    // Insert the new message
+    // RETURNING * gives us back the inserted row (including generated id and created_at)
+    const messages = await sql`
+      INSERT INTO messages (thread_id, type, content)
+      VALUES (${threadId}, ${type}, ${trimmedContent})
+      RETURNING id, thread_id, type, content, created_at
+    `;
+
+    // Return the created message with 201 Created status
+    res.status(201).json(messages[0]);
+  } catch (error) {
+    console.error("Error creating message:", error);
+    res.status(500).json({
+      error: "Failed to create message",
+    });
+  }
+});
+
+/**
+ * POST /api/threads
+ *
+ * Creates a new thread with an initial message.
+ * This is a compound operation that performs two inserts in sequence.
+ *
+ * Authentication:
+ * - Protected by requireAuth middleware
+ * - Requires valid JWT token in Authorization header
+ * - req.userId is available (will be used in PR #17 to set thread owner)
+ *
+ * SQL Concepts:
+ * - SEQUENTIAL INSERTS: Thread must be created first to get its ID
+ * - RETURNING clause: Get the created thread's ID for the message insert
+ * - FOREIGN KEY: Message references the newly created thread
+ * - TRANSACTION SEMANTICS: Both inserts should succeed or neither should
+ *
+ * API Concepts:
+ * - COMPOUND OPERATION: Creates multiple related resources in one request
+ * - 201 Created: Appropriate status for resource creation
+ * - Business Logic: A new chat always starts with a message
+ * - Request Body: Requires both title and initial message content
+ *
+ * Design Decision:
+ * This endpoint combines thread and message creation into a single request
+ * because it matches the business logic (a chat thread always starts with
+ * a message). An alternative would be separate endpoints, but that would
+ * require two HTTP requests and expose an inconsistent state.
+ */
+app.post("/api/threads", requireAuth, async (req, res) => {
+  try {
     const { title, content } = req.body;
 
+    // Validate required fields
     if (!title || !content) {
-        return res.status(400).json({
-            error: "Both 'title' and 'content' are required",
-        });
+      return res.status(400).json({
+        error: "Both 'title' and 'content' are required",
+      });
     }
 
+    // Validate title is not empty after trimming
     const trimmedTitle = title.trim();
-    const trimmedContent = content.trim();
-
-    if (trimmedTitle.length === 0 || trimmedContent.length === 0) {
-        return res
-            .status(400)
-            .json({ error: "Title and content cannot be empty" });
+    if (trimmedTitle.length === 0) {
+      return res.status(400).json({
+        error: "Title cannot be empty",
+      });
     }
 
-    try {
-        // 1. Opret tråden, og hent dens id med RETURNING
-        const [thread] = await sql`
+    // Validate content is not empty after trimming
+    const trimmedContent = content.trim();
+    if (trimmedContent.length === 0) {
+      return res.status(400).json({
+        error: "Content cannot be empty",
+      });
+    }
+
+    // Step 1: Create the thread
+    // Use RETURNING to get the generated ID for the next insert
+    const threads = await sql`
       INSERT INTO threads (title)
       VALUES (${trimmedTitle})
       RETURNING id, title, created_at
     `;
 
-        // 2. Opret den første besked i den nye tråd
-        const [message] = await sql`
+    const thread = threads[0];
+
+    // Step 2: Create the first message in the new thread
+    // Use the thread ID from the previous insert
+    const messages = await sql`
       INSERT INTO messages (thread_id, type, content)
       VALUES (${thread.id}, 'user', ${trimmedContent})
-      RETURNING *
+      RETURNING id, thread_id, type, content, created_at
     `;
 
-        res.status(201).json({ thread, message });
-    } catch (error) {
-        console.error("Kunne ikke oprette thread:", error);
-        res.status(500).json({ error: "Noget gik galt på serveren" });
-    }
+    // Return both the thread and the initial message with 201 Created status
+    // This gives the frontend everything it needs to navigate to the new thread
+    res.status(201).json({
+      thread: thread,
+      message: messages[0],
+    });
+  } catch (error) {
+    console.error("Error creating thread:", error);
+    res.status(500).json({
+      error: "Failed to create thread",
+    });
+  }
 });
 
-app.post("/api/threads/:id/messages", async (req, res) => {
+/**
+ * PATCH /api/threads/:id
+ *
+ * Updates a thread's title.
+ * This is a partial update - only the title field is modified.
+ *
+ * Authentication:
+ * - Protected by requireAuth middleware
+ * - Requires valid JWT token in Authorization header
+ * - req.userId is available (will be used in PR #17 for authorization)
+ *
+ * SQL Concepts:
+ * - UPDATE statement: Modifies existing rows in a table
+ * - WHERE clause: Specifies which row(s) to update
+ * - RETURNING clause: Returns the updated row to confirm the change
+ * - Partial updates: Only specified columns are modified, others remain unchanged
+ *
+ * API Concepts:
+ * - PATCH vs PUT: PATCH updates specific fields, PUT replaces entire resource
+ * - 200 OK: Success status for updates (resource still exists at same URI)
+ * - 404 Not Found: Thread doesn't exist
+ * - 400 Bad Request: Invalid input data
+ * - Idempotency: Calling PATCH multiple times with same data has same effect
+ *
+ * HTTP Method Choice:
+ * We use PATCH because we're only updating the title field. If we were
+ * replacing the entire thread resource, we would use PUT instead.
+ */
+app.patch("/api/threads/:id", requireAuth, async (req, res) => {
+  try {
+    // Extract the thread ID from the URL parameters
     const threadId = req.params.id;
-    const { type, content } = req.body;
 
-    if (!type || !content) {
-        return res.status(400).json({
-            error: "Both 'type' and 'content' are required",
-        });
-    }
-
-    if (type !== "user" && type !== "bot") {
-        return res.status(400).json({
-            error: "Type must be either 'user' or 'bot'",
-        });
-    }
-
-    const trimmedContent = content.trim();
-    if (trimmedContent.length === 0) {
-        return res.status(400).json({ error: "Content cannot be empty" });
-    }
-
-    try {
-        // 1. Gem brugerens besked
-        const [userMessage] = await sql`
-      INSERT INTO messages (thread_id, type, content)
-      VALUES (${threadId}, ${type}, ${trimmedContent})
-      RETURNING *
-    `;
-
-        // 2. Hent hele tråden, ældste først
-        const history = await sql`
-      SELECT type, content
-      FROM messages
-      WHERE thread_id = ${threadId}
-      ORDER BY created_at ASC
-    `;
-
-        // 3. Map databaseformat til API-format (bot -> assistant)
-        const groqMessages = history.map((message) => ({
-            role: message.type === "bot" ? "assistant" : "user",
-            content: message.content,
-        }));
-
-        groqMessages.unshift({
-            role: "system",
-            content:
-                "You are a friendly pirate. Speak in pirate dialect",
-        });
-
-        // 4. Kald Groq med hele samtalen
-        const response = await fetch(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-                },
-                body: JSON.stringify({
-                    model: "openai/gpt-oss-20b",
-                    messages: groqMessages,
-                }),
-            },
-        );
-
-        if (!response.ok) {
-            console.error(
-                "Groq API fejl:",
-                response.status,
-                await response.text(),
-            );
-            // Brugerens besked er allerede gemt, så den returneres stadig
-            return res
-                .status(502)
-                .json({ error: "AI-tjenesten er ikke tilgængelig", userMessage });
-        }
-
-        const data = await response.json();
-        const botContent = data.choices[0].message.content;
-
-        // 5. Gem AI-svaret (API'et siger "assistant", databasen siger "bot")
-        const [botMessage] = await sql`
-      INSERT INTO messages (thread_id, type, content)
-      VALUES (${threadId}, 'bot', ${botContent})
-      RETURNING *
-    `;
-
-        // 6. Returnér begge beskeder
-        res.status(201).json({ userMessage, botMessage });
-    } catch (error) {
-        console.error("Kunne ikke oprette message:", error);
-        res.status(500).json({ error: "Noget gik galt på serveren" });
-    }
-});
-
-app.post("/api/test-groq", async (req, res) => {
-    const apiKey = process.env.GROQ_API_KEY;
-
-    if (!apiKey) {
-        return res.status(500).json({ error: "GROQ_API_KEY is not configured" });
-    }
-
-    try {
-        const response = await fetch(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${apiKey}`,
-                },
-                body: JSON.stringify({
-                    model: "openai/gpt-oss-20b",
-                    messages: [
-                        {
-                            role: "user",
-                            content: "Hello! Please respond with a short greeting.",
-                        },
-                    ],
-                }),
-            },
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            return res.status(response.status).json(data);
-        }
-
-        res.json(data);
-    } catch (error) {
-        console.error("Groq API error:", error);
-        res.status(500).json({ error: "Failed to reach Groq API" });
-    }
-});
-
-// patch methods
-app.patch("/api/threads/:id", async (req, res) => {
-    const threadId = req.params.id;
+    // Extract the new title from the request body
     const { title } = req.body;
 
+    // Validate that title is provided
     if (!title) {
-        return res.status(400).json({ error: "Title is required" });
+      return res.status(400).json({
+        error: "Title is required",
+      });
     }
 
+    // Validate title is not empty after trimming
     const trimmedTitle = title.trim();
     if (trimmedTitle.length === 0) {
-        return res.status(400).json({ error: "Title cannot be empty" });
+      return res.status(400).json({
+        error: "Title cannot be empty",
+      });
     }
 
-    try {
-        const updated = await sql`
+    // Update the thread in the database
+    // Only the title field is modified, other fields (created_at) remain unchanged
+    const result = await sql`
       UPDATE threads
       SET title = ${trimmedTitle}
       WHERE id = ${threadId}
       RETURNING id, title, created_at
     `;
 
-        // Tomt array betyder, at tråden ikke fandtes
-        if (updated.length === 0) {
-            return res.status(404).json({ error: "Thread not found" });
-        }
-
-        res.json(updated[0]);
-    } catch (error) {
-        console.error("Kunne ikke opdatere thread:", error);
-        res.status(500).json({ error: "Noget gik galt på serveren" });
+    // If no thread was updated, it means the thread doesn't exist
+    if (result.length === 0) {
+      return res.status(404).json({
+        error: "Thread not found",
+      });
     }
+
+    // Return the updated thread with 200 OK status
+    res.json(result[0]);
+  } catch (error) {
+    console.error("Error updating thread:", error);
+    res.status(500).json({
+      error: "Failed to update thread",
+    });
+  }
 });
 
-// delete methods
-
-app.delete("/api/threads/:id", async (req, res) => {
+/**
+ * DELETE /api/threads/:id
+ *
+ * Delete a thread by ID.
+ *
+ * Authentication:
+ * - Protected by requireAuth middleware
+ * - Requires valid JWT token in Authorization header
+ * - req.userId is available (will be used in PR #17 for authorization)
+ */
+app.delete("/api/threads/:id", requireAuth, async (req, res) => {
+  try {
+    // Extract the thread ID from the URL parameters
     const threadId = req.params.id;
 
-    try {
-        const deleted = await sql`
+    // Delete the thread from the database
+    // Note: This will automatically delete all associated messages
+    // because of the ON DELETE CASCADE constraint on the messages table
+    const result = await sql`
       DELETE FROM threads
       WHERE id = ${threadId}
       RETURNING id
     `;
 
-        // Tomt array betyder, at tråden ikke fandtes
-        if (deleted.length === 0) {
-            return res.status(404).json({ error: "Thread not found" });
-        }
-
-        res.json({ message: "Thread deleted" });
-    } catch (error) {
-        console.error("Kunne ikke slette thread:", error);
-        res.status(500).json({ error: "Noget gik galt på serveren" });
+    // If no thread was deleted, it means the thread doesn't exist
+    if (result.length === 0) {
+      return res.status(404).json({
+        error: "Thread not found",
+      });
     }
+
+    // Return success message
+    res.json({
+      message: "Thread deleted successfully",
+      deletedId: result[0].id,
+    });
+  } catch (error) {
+    console.error("Error deleting thread:", error);
+    res.status(500).json({
+      error: "Failed to delete thread",
+    });
+  }
 });
 
+// ========== Start the server ========== //
 app.listen(PORT, () => {
-    console.log(`Server kører på http://localhost:${PORT}`);
+  console.log(`✅ Server is running on http://localhost:${PORT}`);
 });

@@ -1,16 +1,18 @@
 import { Outlet, useLoaderData, redirect } from "react-router";
 import Sidebar from "../components/Sidebar.jsx";
+import { apiFetch } from "../lib/apiFetch.js";
+import { supabase } from "../lib/supabase.js";
 
 /**
  * CLIENT LOADER FUNCTION
  *
- * Fetches the list of chat threads from Supabase before the layout renders.
+ * Fetches the list of chat threads from our custom API before the layout renders.
  * Key concepts:
  * 1. PARENT ROUTE LOADER: Runs before any child route loaders
  * 2. SHARED DATA: Data is available to this component and can be accessed by children
- * 3. SUPABASE REST API: Direct HTTP calls to Supabase database
- * 4. ENVIRONMENT VARIABLES: Secure way to store API credentials
- * 5. QUERY PARAMETERS: Using URL parameters to filter and sort data
+ * 3. CUSTOM API: Direct HTTP calls to our Express API server
+ * 4. ENVIRONMENT VARIABLES: Secure way to store API endpoint URLs
+ * 5. AUTHENTICATED REQUESTS: Uses apiFetch to include JWT token
  *
  * This loader runs:
  * - On initial page load
@@ -18,12 +20,17 @@ import Sidebar from "../components/Sidebar.jsx";
  * - When React Router revalidates (after mutations)
  */
 export async function clientLoader() {
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/threads`);
+  // Make the request to our custom API with authentication
+  // apiFetch automatically includes the JWT token in the Authorization header
+  // and constructs the full URL from the API base URL + path
+  const response = await apiFetch("/api/threads");
 
+  // Check if the request was successful
   if (!response.ok) {
     throw new Error(`Failed to fetch threads: ${response.status}`);
   }
 
+  // Parse the JSON response
   const threads = await response.json();
 
   return { threads };
@@ -32,31 +39,32 @@ export async function clientLoader() {
 /**
  * CLIENT ACTION FUNCTION
  *
- * Handles thread deletion requests.
+ * Handles thread deletion and user logout.
  * Key concepts:
  * 1. INTENT PATTERN: Uses form field to identify the action type
- * 2. DELETE REQUEST: Sends DELETE request to our own Express API
- * 3. CASCADE DELETE: The database automatically deletes related messages
- * 4. AUTOMATIC REVALIDATION: Loader re-runs to refresh thread list
+ * 2. MULTIPLE ACTIONS: Single route handles different operations
+ * 3. DELETE REQUEST: Sends DELETE request to our custom API
+ * 4. LOGOUT: Clears session and redirects to login
+ * 5. AUTOMATIC REVALIDATION: Loader re-runs after mutations
  *
  * The action runs:
- * - When a Form with method="post" is submitted
- * - Checks the "intent" field to determine the action
+ * - When a Form with method="post" is submitted to this route
+ * - Checks the "intent" field to determine which action to perform
  */
 export async function clientAction({ request }) {
-  const apiUrl = import.meta.env.VITE_API_URL;
-
   // Extract form data
   const formData = await request.formData();
   const intent = formData.get("intent");
-  const threadId = formData.get("threadId");
 
-  // Handle delete intent
-  if (intent === "delete" && threadId) {
+  // Handle delete thread intent
+  if (intent === "delete") {
+    const threadId = formData.get("threadId");
+
     try {
-      // DELETE request to our Express API
+      // DELETE request to our custom API with authentication
+      // apiFetch automatically includes the JWT token
       // Messages are automatically deleted due to CASCADE
-      const response = await fetch(`${apiUrl}/api/threads/${threadId}`, {
+      const response = await apiFetch(`/api/threads/${threadId}`, {
         method: "DELETE",
       });
 
@@ -68,6 +76,20 @@ export async function clientAction({ request }) {
     } catch (error) {
       return { error: error.message };
     }
+  }
+
+  // Handle logout intent
+  if (intent === "logout") {
+    // Sign out the user using Supabase Auth
+    // This clears the session and JWT tokens from localStorage
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Error signing out:", error.message);
+    }
+
+    // Redirect to login page after logout
+    return redirect("/login");
   }
 
   return null;
