@@ -66,12 +66,14 @@ body {
   gap: 1em;
   border-bottom: 1px solid var(--border-light);
 }
+
 .chatbot-title {
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--text-primary);
   flex-grow: 1;
 }
+
 .new-chat-btn {
   display: flex;
   align-items: center;
@@ -85,6 +87,7 @@ body {
   cursor: pointer;
   transition: background 0.1s ease;
 }
+
 .new-chat-btn:hover {
   background: var(--bg-hover);
 }
@@ -130,6 +133,7 @@ body {
   padding: 0.5em;
   margin: 0;
 }
+
 .chat-thread-item {
   margin-bottom: 0.25rem;
 }
@@ -142,6 +146,7 @@ body {
   transition: background 0.1s ease;
   position: relative;
 }
+
 .chat-thread-item-content:hover {
   background: var(--bg-hover);
 }
@@ -173,10 +178,12 @@ body {
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     color: var(--text-primary);
   }
+
   50% {
     color: var(--text-muted);
   }
@@ -228,6 +235,7 @@ body {
   padding: 0.75rem;
   justify-content: space-between;
 }
+
 .user-profile {
   text-decoration: none;
   display: flex;
@@ -237,16 +245,20 @@ body {
   cursor: pointer;
   transition: background 0.1s ease;
 }
+
 .user-profile:hover {
   background: var(--bg-hover);
 }
+
 .user-avatar {
   border-radius: 50%;
   border: none;
 }
+
 .user-name {
   font-size: 0.875rem;
 }
+
 .logout-btn {
   background: transparent;
   font-size: 1.2rem;
@@ -256,6 +268,7 @@ body {
   border: 1px solid var(--border-medium);
   transition: background 0.1s ease;
 }
+
 .logout-btn:hover {
   background-color: var(--bg-hover);
 }
@@ -589,6 +602,16 @@ body {
   padding: 0.75rem;
   border-radius: 6px;
   border: 1px solid #cfc;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.info-message {
+  background: #eef4ff;
+  color: #1d4ed8;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #c7d7fe;
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }

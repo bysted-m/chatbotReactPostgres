@@ -10,6 +10,8 @@
  * 3. AUTHORIZATION HEADER: Adds "Bearer <token>" to all requests
  * 4. SESSION MANAGEMENT: Uses Supabase client to get current session
  * 5. BACKWARD COMPATIBLE: Works like fetch() but with auto-auth
+ * 6. 401 HANDLING: Redirects to /login (and remembers the current page)
+ *    when the API says the token is missing or invalid
  *
  * Why wrap fetch()?
  * - DRY Principle: Don't repeat authentication logic in every API call
@@ -22,12 +24,14 @@
  * 2. Extract the JWT access token from the session
  * 3. Add the token to the Authorization header
  * 4. Make the request with the standard fetch() function
+ * 5. If the response is 401, throw a redirect to /login?redirect=<current page>
  *
  * Usage:
  *   const response = await apiFetch('/api/threads');
  *   const response = await apiFetch('/api/threads', { method: 'POST', body: ... });
  */
 
+import { redirect } from "react-router";
 import { supabase } from "./supabase.js";
 
 /**
@@ -66,8 +70,18 @@ export async function apiFetch(path, options = {}) {
 
   // Make the request with the standard fetch() function
   // Spread the original options and override headers
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers,
   });
+
+  // Tokenet mangler eller virker ikke. Kun login hjælper
+  if (response.status === 401) {
+    // Husk siden, så login kan sende brugeren tilbage
+    const currentPath = window.location.pathname + window.location.search;
+    throw redirect(`/login?redirect=${encodeURIComponent(currentPath)}`);
+  }
+
+  // Andre fejl (400, 404, 500) håndterer routen selv
+  return response;
 }
